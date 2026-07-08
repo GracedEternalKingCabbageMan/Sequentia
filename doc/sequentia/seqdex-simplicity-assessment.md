@@ -78,4 +78,4 @@ This experiment is cheap, validates the activation path against our own tree, an
 | Confidential + covenant on same output | CLOSED (introspection can't read blinded values) |
 | Activation on Sequentia | gated, one flag — best at testnet re-genesis |
 
-Relevant codebase paths: `/home/aejkohl/SequentiaByClaude/src/chainparams.cpp:582-585` (the `NEVER_ACTIVE` flag to flip), `/home/aejkohl/SequentiaByClaude/src/validation.cpp:2098-2099`, `/home/aejkohl/SequentiaByClaude/src/script/interpreter.cpp:3355-3365`, `/home/aejkohl/SequentiaByClaude/src/simplicity/` (vendored interpreter + jets).
+Relevant codebase paths: `/home/aejkohl/Sequentia/src/chainparams.cpp:582-585` (the `NEVER_ACTIVE` flag to flip), `/home/aejkohl/Sequentia/src/validation.cpp:2098-2099`, `/home/aejkohl/Sequentia/src/script/interpreter.cpp:3355-3365`, `/home/aejkohl/Sequentia/src/simplicity/` (vendored interpreter + jets).
