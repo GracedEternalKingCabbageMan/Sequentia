@@ -217,18 +217,18 @@ All repos live at https://github.com/GracedEternalKingCabbageMan/ and are public
 | Repo | One-liner |
 |---|---|
 | `Sequentia` | The Sequentia node (`elementsd` fork of Elements 23.3.3): consensus, anchoring, proof of stake, open fee market, plus the canonical protocol documentation in `doc/sequentia/`. (This repository.) |
-| `SWK` | Sequentia Wallet Kit: a fork of Blockstream LWK — Rust wallet library, CLI, and WASM bindings for building Sequentia (and Bitcoin testnet4) wallets. |
+| `SWK` | Sequentia Wallet Kit: a fork of Blockstream LWK, with Rust wallet library, CLI, and WASM bindings for building Sequentia (and Bitcoin testnet4) wallets. |
 | `sequentia-web-wallet` | Proof-of-concept browser wallet built on SWK, live at https://sequentiatestnet.com/wallet. |
-| `ambra` | Ambra: non-custodial dual-chain (Bitcoin testnet4 + Sequentia) mobile wallet — Flutter UI over a Rust core built on SWK. |
+| `ambra` | Ambra: non-custodial dual-chain (Bitcoin testnet4 + Sequentia) mobile wallet, a Flutter UI over a Rust core built on SWK. |
 | `fulmen` | Fulmen: desktop (Electron) wallet for SeqLN with a bundled Lightning node. |
-| `seqln` | SeqLN: a Core Lightning fork that runs on Sequentia and Bitcoin from the same binary — asset channels, any-asset payments, pure-Lightning swaps. |
-| `seqdex` | SeqDEX: non-custodial atomic-swap DEX — P2P order book (seqob), same-chain swaps, and cross-chain BTC↔asset swaps made safe by Bitcoin anchoring. |
+| `seqln` | SeqLN: a Core Lightning fork that runs on Sequentia and Bitcoin from the same binary, with asset channels, any-asset payments, pure-Lightning swaps. |
+| `seqdex` | SeqDEX: non-custodial atomic-swap DEX built on a P2P order book (seqob), same-chain swaps, and cross-chain BTC↔asset swaps made safe by Bitcoin anchoring. |
 | `sequentia-explorer` | Sequentia block explorer frontend (esplora fork); the indexer lives in sequentia-electrs. |
 | `sequentia-electrs` | The electrs fork: Rust indexer + Esplora REST API for Sequentia and its Bitcoin testnet4 parent chain. |
 | `sequentia-registry` | Sequentia Asset Registry service (asset metadata). |
 | `openamp` | OpenAMP: open-source restricted-asset issuance/transfer-approval service (an AMP2 equivalent) with opt-in confidentiality; zero consensus changes. |
 | `compages` | Compages: centralized Ethereum (Sepolia) ↔ Sequentia bridge proof-of-concept. |
-| `emissio` | Emissio: community rewards platform — earn Sequence tokens (SEQ) for testnet contributions. |
+| `emissio` | Emissio: community rewards platform, earning Sequence tokens (SEQ) for testnet contributions. |
 | `libwally-core` | libwally fork with the Sequentia transaction-parsing patch (issuance denomination byte) used by SeqLN. |
 
 ## Inherited from Elements

@@ -36,7 +36,7 @@ For a confidential output the program receives only the **Pedersen commitment po
 
 **The explicit tradeoff:** the *enforced legs* of any covenant offer — the resting amount, the asset id, and the credited output — must be **explicit (non-confidential)**. A covenant cannot police an amount it cannot see. Confidentiality and covenant-enforced amounts are mutually exclusive on the same output.
 
-**Is that acceptable given confidential-by-default?** Yes, as an *added tier*, not a replacement. The honest framing is a two-tier DEX:
+**Is that acceptable, given that outputs may be blinded opt-in (Sequentia is transparent by default)?** Yes, as an *added tier*, not a replacement. The honest framing is a two-tier DEX:
 - **Transparent covenant tier:** funded, non-interactive, relay-as-discovery — but resting size/asset are public on-chain (a transparent CLOB). Best for liquid price-discovery markets.
 - **Confidential interactive tier (today's path):** blinded PSET co-sign / HTLC, preserving privacy at the cost of liveness and relay trust. Best for size/privacy-sensitive flow.
 
