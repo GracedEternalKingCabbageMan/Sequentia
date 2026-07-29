@@ -413,10 +413,17 @@ public:
         // SEQUENTIA PoS: enforce leader-paid coinbase fees from genesis. Mainnet
         // has no pre-rule history to grandfather (cf. CTestNetParams).
         consensus.pos_coinbase_leader_height = 0;
-        // Exponential-race leader election: disabled until mainnet launches and a
-        // coordinated activation height is set (hard fork; see params.h). Mainnet
-        // is not live yet, so this stays 0 for now.
-        consensus.pos_exprace_height = 0;
+        // Exponential-race leader election: mainnet launches with the exp-race in
+        // force from its FIRST ELECTED BLOCK, so there is never a legacy-election
+        // era to fork away from later. The value is 1 and not 0 because 0 is the
+        // DISABLED sentinel for this parameter (PosExpRaceActive requires
+        // pos_exprace_height > 0), unlike pos_coinbase_leader_height directly
+        // above, where 0 means "enforce from genesis". Height 1 is the first block
+        // leader election governs: genesis (height 0) carries no leader, committee
+        // or VRF proof. Mainnet has no history, so this is a launch parameter, not
+        // a fork of live consensus. See params.h and
+        // doc/sequentia/06-tokenomics-and-launch.md.
+        consensus.pos_exprace_height = 1;
         consensus.nMaxBlockWeight = 200000;             // a twentieth of Bitcoin (doc 11 §4)
         consensus.connect_genesis_outputs = true;
         anyonecanspend_aremine = false;
