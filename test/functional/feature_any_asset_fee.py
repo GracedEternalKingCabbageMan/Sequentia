@@ -208,7 +208,8 @@ class AnyAssetFeeTest(BitcoinTestFramework):
         node1 = self.nodes[1]
 
         raw_tx = node0.createrawtransaction(outputs=[{self.node1_address: 1.0, 'asset': self.asset }])
-        funded_tx = node0.fundrawtransaction(raw_tx)['hex']
+        # The fee asset is never taken from the first output; name it.
+        funded_tx = node0.fundrawtransaction(raw_tx, {'fee_asset': self.asset})['hex']
         assert node0.decoderawtransaction(funded_tx)['fee'] == { self.asset: Decimal('0.00049820')}
         blinded_tx = node0.blindrawtransaction(funded_tx)
         signed_tx = node0.signrawtransactionwithwallet(blinded_tx)['hex']

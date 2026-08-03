@@ -205,10 +205,72 @@ A block records the leader's VRF proof in a coinbase `OP_RETURN` (tagged
 `SEQVRF`), covered by the merkle root and hence by the leader's signature. At
 connect time `CheckPosStakeRules` verifies the proof against the leader's
 challenge key over the slot seed, recomputes `slot`, and requires
-`block.nTime ≥ parent.nTime + slot · posslotinterval` (`bad-posvrf-early`). So
+`block.nTime ≥ parent.nTime + slot · gate_unit` (`bad-posvrf-early`). So
 the rank-0 leader may produce earliest; if it is absent, a higher-slot staker
 may step in after its slot opens. This is the whitepaper's local wall-clock
 round timeout with the lowest-VRF participant as proposer.
+
+`gate_unit` is `posslotinterval` under the legacy `PosVrfSlot` election and, from
+`pos_exprace_gate_height`, one second under the exponential race
+(`POS_EXPRACE_GATE_SECONDS`; the single definition is `PosSlotGateSeconds`,
+shared by consensus, the block assembler and the producer). The two elections
+need different units because they produce different quantities. `PosVrfSlot` is a
+RANK: uniform in `[0, W/w)`, so a staker of share `s` always draws below `1/s`
+and the best draw on the network is 0 or 1 — one interval per rank costs nothing.
+The exponential-race score is a RATE: `-ln(U)·W/w`, whose minimum over all
+stakers is `Exponential(1)` — mean 1, unbounded geometric tail. Scaling that by a
+whole interval leaves the network silent for `⌊min score⌋` whole slots before
+anyone may propose, so `P(at least one slot lost) = e⁻² ≈ 13.5%` and the mean
+interval is `≈1.21` intervals. Measured on the Sequentia testnet across
+`pos_exprace_height` = 44300: mean interval 30.00 s with 0.0% of intervals over
+one slot below the fork, 38.45 s with 15.2% above it, every late interval an
+exact multiple of the slot interval and the losses spread evenly over all twelve
+stakers. At one second per score unit the gate binds past the producer's cadence
+floor with probability `e^-(posslotinterval+1)` (~3e-14 at 30 s; the `+1` because
+the slot is `⌊score⌋`), while a candidate scoring `N` units worse still waits `N`
+further seconds — the fallback ordering the gate exists for is kept, only its
+scale is corrected.
+
+#### What the finer scale does to stake proportionality
+
+The gate decides *when* a staker may publish; `PosProducer::BackedForRound`
+decides *who wins* among the proposals on the table, ordering by (1) freshest
+Bitcoin anchor, then (2) lowest exponential-race score. The finer scale does not
+touch either key, but it does widen the field the anchor key is applied to. Under
+the whole-interval gate only scores below 2 share the earliest moment (mean field
+1.6 of 4 stakers); under the score-second gate every score below the interval does
+(mean field 3.8 of 4). Both figures are measured, not estimated.
+
+With the committee agreeing on the Bitcoin anchor, which is the normal case, the
+anchor key never fires and the scale is a pure time shift: over 200,000 elections
+at stakes 50/30/15/5 the two gates elect the *identical* winner in every round
+(realised 49.96 / 30.01 / 15.04 / 5.00 %, chi-square p = 0.97), and the same holds
+with the largest staker offline (60.2 / 29.9 / 9.9 % against a renormalised
+60/30/10). Proportionality is preserved exactly.
+
+The residual is anchor divergence. When nodes disagree about Bitcoin's tip, a
+fresher-anchored but worse-scoring proposal wins, which is correct under anchoring
+supremacy, but the bonus is per *identity*, not per stake. Because the field is
+wider, the finer gate exposes it several times more often. Measured, again at
+50/30/15/5: if one round in 300 sees a single node one anchor ahead (about two
+seconds of Bitcoin header propagation per 600 s block against a 30 s cadence) the
+smallest staker gains 0.36 % of its own share and the distribution stays
+statistically proportional (p = 0.77), and splitting a 30 % stake into fifteen
+identities gains 0.005 points. At a pessimistic one round in twenty the smallest
+staker gains 14 % of its share, the largest loses 1.1 points, and splitting gains
+0.33 points. A node that were *persistently* freshest would take 78.8 % of blocks
+on 5 % of stake against 10.6 % under the old gate, but it cannot: committee
+members validate a proposal before signing it (`TestBlockValidity` in
+`PosProducer::DriveRound`), and a member whose parent-chain daemon has not yet
+seen that Bitcoin block rejects the anchor (`anchor-unknown`) and backs the next
+candidate, so an anchor ahead of a quorum of the committee cannot certify. The
+practical exposure is therefore the transient case, and it is small. Two operational
+consequences follow: keep committee members' parent-chain views close (a shared or
+well-peered Bitcoin daemon), and expect anchor divergence to split shares within a
+round slightly more often than before, which costs a round, not funds. See
+`pos_exprace_gate_preserves_proportionality` and
+`pos_exprace_gate_anchor_divergence_skew` in `src/test/pos_tests.cpp`, and
+`test/functional/feature_pos_exprace_gate_proportionality.py`.
 
 ## 4. Committee certification & aggregation
 

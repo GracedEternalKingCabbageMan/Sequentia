@@ -917,6 +917,14 @@ static bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransac
     return true;
 }
 
+bool IsFeeAssetAccepted(const CAsset& asset)
+{
+    // A rate is "atoms of the asset per reference unit", so probing with one
+    // whole reference unit (exchange_rate_scale) yields the asset's value in
+    // reference units: > 0 means this node prices, and therefore accepts, it.
+    return ExchangeRateMap::GetInstance().ConvertAmountToValue(exchange_rate_scale, asset).GetValue() > 0;
+}
+
 static bool CreateTransactionInternal(
         CWallet& wallet,
         const std::vector<CRecipient>& vecSend,
@@ -957,12 +965,9 @@ static bool CreateTransactionInternal(
     // rate is only a default), so a producer that refuses it (rate 0) must also
     // refuse fees paid in it. ConvertAmountToValue already returns the policy
     // asset's configured rate, falling back to 1:1 only when unset.
-    if (g_con_any_asset_fees) {
-        CAmount probe = ExchangeRateMap::GetInstance().ConvertAmountToValue(exchange_rate_scale, coin_selection_params.m_fee_asset).GetValue();
-        if (probe <= 0) {
-            error = _("The chosen fee asset is not accepted (no exchange rate on this node); choose a different fee asset");
-            return false;
-        }
+    if (g_con_any_asset_fees && !IsFeeAssetAccepted(coin_selection_params.m_fee_asset)) {
+        error = _("The chosen fee asset is not accepted (no exchange rate on this node); choose a different fee asset");
+        return false;
     }
 
     CScript dummy_script = CScript() << 0x00;
@@ -993,6 +998,20 @@ static bool CreateTransactionInternal(
         map_recipients_sum[recipient.asset] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount) {
+            // SEQUENTIA: the fee comes OUT of this output, so it can only be
+            // paid in this output's asset. The RPC layer derives that
+            // constraint for callers (ResolveFeeAsset in rpc/spend.cpp), so
+            // reaching here means a caller built the CCoinControl itself and
+            // asked for a genuinely impossible combination -- or asked to
+            // subtract from outputs of two different assets. This guard is the
+            // backstop for those. Without it the code runs on to
+            // map_change_and_fee.at(fee asset) and surfaces a bare "map::at",
+            // an internal error where the caller needs to be told what is wrong.
+            if (recipient.asset != coin_selection_params.m_fee_asset) {
+                error = strprintf(_("Cannot subtract the fee from an output of asset %s while paying the fee in %s: the fee is taken out of that output, so it is necessarily paid in that output's asset."),
+                                  recipient.asset.GetHex(), coin_selection_params.m_fee_asset.GetHex());
+                return false;
+            }
             outputs_to_subtract_fee_from++;
             coin_selection_params.m_subtract_fee_outputs = true;
         }
@@ -1447,7 +1466,19 @@ static bool CreateTransactionInternal(
 
             // Fill in issuance
             // Blinding revealing underlying asset
-            txNew.vin[reissuance_index].assetIssuance.assetBlindingNonce = token_blinding;
+            //
+            // SEQUENTIA: the nonce normally carries the spent token's asset blinding
+            // factor, which both reveals the underlying asset and -- by being
+            // non-null -- flags this input as a reissuance rather than a brand new
+            // issuance. A token held on an UNBLINDED output has a zero blinding
+            // factor, so that scheme would leave the nonce null and consensus would
+            // read a new issuance: the wallet used to emit a transaction that could
+            // never confirm while still marking the token spent (a phantom).
+            // Sequentia is transparent-by-default, so this is the common case, not an
+            // exotic one. Use the explicit sentinel instead; consensus ignores the
+            // nonce's value when the spent token's asset is explicit.
+            txNew.vin[reissuance_index].assetIssuance.assetBlindingNonce =
+                token_blinding.IsNull() ? ReissuanceExplicitTokenNonce() : token_blinding;
             txNew.vin[reissuance_index].assetIssuance.assetEntropy = issuance_details->entropy;
             txNew.vin[reissuance_index].assetIssuance.nAmount = txNew.vout[asset_index].nValue;
 
@@ -1690,6 +1721,28 @@ static bool CreateTransactionInternal(
                 error = _("Unable to blind the transaction properly. This should not happen.");
                 return false;
             }
+        }
+    }
+
+    // SEQUENTIA: never emit a phantom reissuance.
+    //
+    // The reissuance token id commits to whether the issuance amount is blinded
+    // (CalculateReissuanceToken's fConfidential argument), so consensus re-derives
+    // the token id from the FINAL issuance amount and requires it to match the
+    // token actually being spent. If blinding did not end up matching the token
+    // variant we hold, the transaction is unrelayable -- but the wallet would still
+    // record the token input as spent, stranding the reissuance authority. That
+    // silent failure is exactly what made reissuance-from-an-unblinded-token look
+    // like data loss. Check it here and fail loudly instead.
+    if (sign && issuance_details && reissuance_index != -1 && !issuance_details->reissuance_token.IsNull()) {
+        CAsset expected_token;
+        CalculateReissuanceToken(expected_token, issuance_details->entropy,
+                                 txNew.vin[reissuance_index].assetIssuance.nAmount.IsCommitment());
+        if (expected_token != issuance_details->reissuance_token) {
+            wallet.WalletLogPrintf("ERROR: reissuance would derive token %s but the token being spent is %s\n",
+                                   expected_token.GetHex(), issuance_details->reissuance_token.GetHex());
+            error = _("Cannot build this reissuance: the issuance amount's blinding does not match the reissuance token that was issued. A token issued blinded requires a blinded reissuance amount, and one issued explicitly requires an explicit amount.");
+            return false;
         }
     }
 
